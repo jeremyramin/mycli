@@ -1,7 +1,6 @@
 # -*- coding: utf-8
 import os
 
-
 def list_path(root_dir):
     """List directory if exists.
 
@@ -9,11 +8,20 @@ def list_path(root_dir):
     :return: list
 
     """
-    res = []
-    if os.path.isdir(root_dir):
-        for name in os.listdir(root_dir):
-            res.append(name)
-    return res
+    # Let empty path represent the current directory
+    if not root_dir:
+        root_dir = os.curdir
+    # Return nothing if not a directory
+    if not os.path.isdir(root_dir):
+        return []
+
+    # Append a path separator to all entries that are directories
+    dir_entries = os.listdir(root_dir)
+    for index, entry in enumerate(dir_entries):
+        if os.path.isdir(os.path.join(root_dir, entry)):
+            dir_entries[index] = entry + os.sep
+
+    return dir_entries
 
 
 def complete_path(curr_dir, last_dir):
@@ -50,25 +58,29 @@ def parse_path(root_dir):
 
 
 def suggest_path(root_dir):
-    """List all files and subdirectories in a directory.
+    """Suggest multiple paths given a partially completed path. The provided
+    path may contain user environment variables and home directory symbols.
 
-    If the directory is not specified, suggest root directory,
-    user directory, current and parent directory.
+    If a path is not specified, it is assumed that the suggestions should come
+    from the current working directory.
 
     :param root_dir: string: directory to list
     :return: list
 
     """
-    if not root_dir:
-        return [os.path.abspath(os.sep), '~', os.curdir, os.pardir]
+    # Expand user path and all environment variables
+    expanded_path = apply(root_dir, os.path.expanduser, os.path.expandvars)
+    file_path, basename = os.path.split(expanded_path)
 
-    if '~' in root_dir:
-        root_dir = os.path.expanduser(root_dir)
+    # There won't be a basename if the provided path ends with a path separator
+    if not basename:
+        # Only show the files in the path that aren't hidden
+        filter_func = lambda entry: not entry.startswith('.')
+    else:
+        # Use basename to filter suggestions
+        filter_func = lambda entry: entry.startswith(basename)
 
-    if not os.path.exists(root_dir):
-        root_dir, _ = os.path.split(root_dir)
-
-    return list_path(root_dir)
+    return filter(filter_func, list_path(file_path))
 
 
 def dir_path_exists(path):
@@ -82,3 +94,15 @@ def dir_path_exists(path):
 
     """
     return os.path.exists(os.path.dirname(path))
+
+
+def apply(value, *functions):
+    """Returns the result of applying a series of functions to a value.
+
+    :param Any value: The value to apply functions to
+    :param (Any) -> Any functions: A collection of functions to apply to value
+    :return Any: The result of applying all functions to value
+    """
+    for transform in functions:
+        value = transform(value)
+    return value

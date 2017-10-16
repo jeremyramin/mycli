@@ -108,8 +108,8 @@ class SQLExecute(object):
         (title, rows, headers, status).
         """
 
-        # Remove spaces and EOL
-        statement = statement.strip()
+        # Remove comments, leading whitespace, and trailing whitespace
+        statement = sqlparse.format(statement, strip_comments = True).strip()
         if not statement:  # Empty string
             yield (None, None, None, None)
 
